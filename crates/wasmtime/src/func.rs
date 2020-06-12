@@ -1048,24 +1048,31 @@ impl Caller<'_> {
     /// It's recommended to take care when calling this API and gracefully
     /// handling a `None` return value.
     pub fn get_export(&self, name: &str) -> Option<Extern> {
+        // Our `Weak` pointer is used only to break a cycle where `Store`
+        // stores instance handles which have this weak pointer as their
+        // custom host data. This function should only be invoke-able while
+        // the `Store` is active, so this upgrade should always succeed.
+        debug_assert!(self.store.upgrade().is_some());
+        let store = Store::from_inner(self.store.upgrade()?);
+
         unsafe {
             if self.caller_vmctx.is_null() {
                 return None;
             }
             let instance = InstanceHandle::from_vmctx(self.caller_vmctx);
-            let export = match instance.lookup(name) {
-                Some(Export::Memory(m)) => m,
+            match instance.lookup(name) {
+                Some(Export::Memory(m)) => {
+                    let handle = store.existing_instance_handle(instance);
+                    let mem = Memory::from_wasmtime_memory(m, handle);
+                    Some(Extern::Memory(mem))
+                }
+                Some(Export::Function(f)) => {
+                    let handle = store.existing_instance_handle(instance);
+                    let func = Func::from_wasmtime_function(f, handle);
+                    Some(Extern::Func(func))
+                }
                 _ => return None,
-            };
-            // Our `Weak` pointer is used only to break a cycle where `Store`
-            // stores instance handles which have this weak pointer as their
-            // custom host data. This function should only be invoke-able while
-            // the `Store` is active, so this upgrade should always succeed.
-            debug_assert!(self.store.upgrade().is_some());
-            let handle =
-                Store::from_inner(self.store.upgrade()?).existing_instance_handle(instance);
-            let mem = Memory::from_wasmtime_memory(export, handle);
-            Some(Extern::Memory(mem))
+            }
         }
     }
 
@@ -1265,5 +1272,29 @@ fn wasm_ty_roundtrip() -> Result<(), anyhow::Error> {
         .unwrap()
         .get6::<i32, u32, f32, i64, u64, f64, ()>()?;
     foo(-1, 1, 2.0, -3, 3, 4.0)?;
+    Ok(())
+}
+
+#[test]
+fn function_from_caller() -> Result<(), anyhow::Error> {
+    let store = Store::default();
+    let call_module = Func::wrap(&store, |caller: Caller| {
+        caller
+            .get_export("memory.allocate")
+            .and_then(|e| e.into_func())
+            .expect("`memory.allocate` function not found");
+    });
+    let module = Module::new(
+        store.engine(),
+        r#"
+            (module
+            (import "" "" (func $export))
+              (func $memory.allocate (export "memory.allocate"))
+              (func $start (call $export))
+              (start $start)
+            )
+         "#,
+    )?;
+    Instance::new(&store, &module, &[call_module.into()])?;
     Ok(())
 }
