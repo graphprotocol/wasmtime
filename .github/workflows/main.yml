@@ -38,7 +38,7 @@ jobs:
     - run: (cd docs && mdbook build)
     - run: cargo build -p wasmtime
     - run: (cd docs && mdbook test -L ../target/debug/deps)
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: doc-book
         path: docs/book
@@ -58,7 +58,7 @@ jobs:
         toolchain: nightly-2020-06-03
     - run: cargo doc --no-deps --all --exclude wasmtime-cli --exclude test-programs --exclude cranelift-codegen-meta
     - run: cargo doc --package cranelift-codegen-meta --document-private-items
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: doc-api
         path: target/doc
@@ -401,7 +401,7 @@ jobs:
         rm dist/installer.wixpdb
       if: matrix.build == 'x86_64-windows'
 
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: bins-${{ matrix.build }}
         path: dist
@@ -424,31 +424,31 @@ jobs:
     # the `download-artifact` repository to see if we can ever get something
     # like "download all artifacts" or "download this list of artifacts"
     - name: Download book
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: doc-book
     - name: Download API docs
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: doc-api
     - name: Download x86_64 macOS binaries
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: bins-x86_64-macos
     - name: Download x86_64 Linux binaries
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: bins-x86_64-linux
     - name: Download AArch64 Linux binaries
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: bins-aarch64-linux
     - name: Download x86_64 Windows binaries
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: bins-x86_64-windows
     - name: Download x86_64 Windows MinGW binaries
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: bins-x86_64-mingw
 
@@ -490,7 +490,7 @@ jobs:
 
     # Upload all assembled tarballs as an artifact of the github action run, so
     # that way even PRs can inspect the output.
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: tarballs
         path: dist
